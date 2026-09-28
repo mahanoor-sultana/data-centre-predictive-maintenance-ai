@@ -1382,20 +1382,22 @@ AI Operations Insight → Maintenance Recommendation**
 # ============================================================
 
 st.divider()
-st.subheader("🤖 AI Incident Investigation")
 
-st.markdown(
-    "Use Llama 3.2 to investigate a predicted failure "
-    "and generate an operational incident report."
+st.subheader(
+    "🤖 AI Incident Investigation"
 )
 
+st.markdown(
+    "Use Generative AI to investigate a predicted failure "
+    "and generate an operational incident report."
+)
 if len(risk_view) > 0:
 
     incident_options = (
         risk_view
         .sort_values(
             "Risk_Score",
-            ascending=False,
+            ascending=False
         )
         .head(50)
         .copy()
@@ -1406,119 +1408,158 @@ if len(risk_view) > 0:
         + " | "
         + incident_options["Risk_Level"].astype(str)
         + " | Risk "
-        + incident_options["Risk_Score"].round(1).astype(str)
+        + incident_options["Risk_Score"]
+        .round(1)
+        .astype(str)
         + "%"
     )
 
     selected_incident = st.selectbox(
         "Select an incident for AI investigation",
         range(len(incident_options)),
-        format_func=lambda x: incident_labels.iloc[x],
+        format_func=lambda x:
+            incident_labels.iloc[x]
     )
 
-    selected_row = incident_options.iloc[selected_incident]
+    selected_row = incident_options.iloc[
+        selected_incident
+    ]
 
     st.write(
-        f"**Server:** {selected_row.get('Server_ID', 'Unknown')} "
-        f"| **Risk:** {selected_row.get('Risk_Level', 'Unknown')} "
-        f"| **Score:** {safe_float(selected_row.get('Risk_Score', 0)):.1f}%"
+        f"**Server:** {selected_row['Server_ID']} "
+        f"| **Risk:** {selected_row['Risk_Level']} "
+        f"| **Score:** "
+        f"{selected_row['Risk_Score']:.1f}%"
     )
 
     if st.button(
-        "🔍 Investigate Incident with Llama 3.2",
-        type="primary",
+        "🔍 Investigate Incident with AI",
+        type="primary"
     ):
 
         try:
 
-            from ollama_ai import analyze_incident
+            from groq_ai import analyze_incident
 
             with st.spinner(
                 "Llama 3.2 is analyzing the incident..."
             ):
-                result = analyze_incident(selected_row)
 
-            if result.get("status") == "success":
+                result = analyze_incident(
+                    selected_row
+                )
+
+            if result["status"] == "success":
 
                 st.success(
                     "AI incident investigation completed."
                 )
 
-                analysis_text = result.get(
-                    "analysis",
-                    "No analysis was returned.",
+                analysis_text = result["analysis"]
+
+                # --------------------------------------------
+                # DISPLAY REPORT
+                # --------------------------------------------
+
+                st.markdown(
+                    analysis_text
                 )
 
-                try:
-                    pdf_report = create_incident_pdf(
-                        analysis_text=analysis_text,
-                        server_id=selected_row.get(
-                            "Server_ID",
-                            "Unknown",
-                        ),
-                        risk_score=safe_float(
-                            selected_row.get(
-                                "Risk_Score",
-                                0,
-                            )
-                        ),
-                        risk_level=selected_row.get(
-                            "Risk_Level",
-                            "Unknown",
-                        ),
-                    )
+                # --------------------------------------------
+                # CREATE PDF
+                # --------------------------------------------
 
-                    st.download_button(
-                        label="📄 Download Professional Incident Report",
-                        data=pdf_report,
-                        file_name=(
-                            f"Incident_Report_"
-                            f"{selected_row.get('Server_ID', 'Unknown')}.pdf"
-                        ),
-                        mime="application/pdf",
-                    )
+                pdf_report = create_incident_pdf(
+                    analysis_text=analysis_text,
+                    server_id=selected_row["Server_ID"],
+                    risk_score=float(
+                        selected_row["Risk_Score"]
+                    ),
+                    risk_level=selected_row["Risk_Level"]
+                )
 
-                except Exception as pdf_error:
-                    st.warning(
-                        f"PDF generation failed: {pdf_error}"
-                    )
-
-                st.markdown(analysis_text)
+                # --------------------------------------------
+                # PDF DOWNLOAD
+                # --------------------------------------------
 
                 st.download_button(
-                    label="📥 Download Incident Report (TXT)",
+                    label=(
+                        "📄 Download Professional "
+                        "Incident Report"
+                    ),
+                    data=pdf_report,
+                    file_name=(
+                        f"Incident_Report_"
+                        f"{selected_row['Server_ID']}.pdf"
+                    ),
+                    mime="application/pdf"
+                )
+
+                # --------------------------------------------
+                # TEXT DOWNLOAD
+                # --------------------------------------------
+
+                st.download_button(
+                    label=(
+                        "📥 Download Incident Report (TXT)"
+                    ),
                     data=analysis_text,
                     file_name=(
                         f"Incident_Report_"
-                        f"{selected_row.get('Server_ID', 'Unknown')}.txt"
+                        f"{selected_row['Server_ID']}.txt"
                     ),
-                    mime="text/plain",
+                    mime="text/plain"
                 )
 
             else:
+
                 st.error(
+                    "Unable to connect to Ollama."
+                )
+
+                st.info(
+                    "For the local version, make sure "
+                    "Ollama is running and the llama3.2 "
+                    "model is available."
+                )
+
+                st.code(
                     result.get(
                         "message",
-                        "AI investigation failed.",
+                        "Unknown Ollama error"
                     )
                 )
 
         except ImportError:
+
             st.error(
-                "ollama_ai.py was not found. "
-                "Make sure ollama_ai.py is in the same project folder as app.py."
+                "The Ollama Python package is not "
+                "available in this environment."
             )
 
         except Exception as e:
+
             st.error(
-                f"AI investigation error: {e}"
+                "Ollama is not available in the "
+                "current environment."
+            )
+
+            st.info(
+                "The dashboard itself is working. "
+                "AI Incident Investigation requires "
+                "an accessible Ollama server."
+            )
+
+            st.code(
+                str(e)
             )
 
 else:
-    st.info(
-        "No risk records are available for AI investigation."
-    )
 
+    st.info(
+        "No risk records are available "
+        "for AI investigation."
+    )
 
 # ============================================================
 # FOOTER
